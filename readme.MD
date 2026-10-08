@@ -25,5 +25,22 @@
              |                               |
              +---------------+---------------+
                              |
+                        작업 완료
                           RAG/Agent
 ```
+
+# Analytics Gold
+- 계산, Group by, join, kpi등 적용
+- PostgreSQL 관계형 테이블에 적용
+
+# Knowledge Gold
+- 데이터
+    - 리뷰, cs, 환불사유, 정책 -> 공통 문서 모델로 변환 처리
+- 청킹(task), 임베딩(task)
+- PostgreSQL pgvector에 적용
+
+# Airflow
+- 3.x 버전 사용
+    - Task, TaskGroup(Task -> Task -> Task), fan-in/fan-out -> 병렬 작업
+    - task 작업 시퀀스 구성 다변화
+    - XCom, retry
