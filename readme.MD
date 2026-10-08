@@ -110,4 +110,14 @@ s3://ECOMMERCE_BUCKET/
         ```
 
 # 접속
+# 이커머스용 접속
 docker compose exec postgres psql -U ecommerce -d ecommerce
+# airflow용 접속
+docker compose exec postgres psql -U airflow -d airflow
+
+# DAG 구성
+```
+/
+L dags
+    L ecommerce_silver_to_gold.py   : silver 데이터 -> 가공 -> Gold 데이터 구성(분석, 지식 병렬 처리)
+```
