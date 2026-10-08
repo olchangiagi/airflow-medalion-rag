@@ -78,3 +78,36 @@ s3://ECOMMERCE_BUCKET/
         - docker file 구성
     - postgresql
         - image 구성
+    - 설치
+        ```
+        docker compose up -d --build
+        ```
+
+- 대시보드 접속
+    - http://localhost:8080
+    - 특징
+        - 한글화 적용
+        - 메인: 대시보드 중심 (현황, 모니터링)
+        - UI 재편 -> 추적, 스케줄 관리 확장
+            - 스케줄링 -> 이벤트 트리거 중심 전환
+        - DAG 추가 후에 자세히 확인
+
+- 계정 조회
+    ```
+    docker compose exec airflow cat /opt/airflow/simple_auth_manager_passwords.json.generated
+    
+    {"admin": "RAZNqMb7qT7MrqdK"}
+    ```
+
+- 관리자
+    - 커넥션
+        - 커넥션 추가
+        ```
+            ID: aws_default
+            유형: Amazon Web Service
+            추가 필드 JSON
+
+        ```
+
+# 접속
+docker compose exec postgres psql -U ecommerce -d ecommerce

@@ -1,4 +1,4 @@
-FROM apache/apache/airflow:3.3.2
+FROM apache/airflow:3.3.2
 
 USER airflow
 
@@ -6,4 +6,4 @@ USER airflow
 COPY requirements.txt /requirements.txt
 
 # 실행
-RUN pip install --no-cache-dir "apache-airflow=3.3.2" -r /requirements.txt
+RUN pip install --no-cache-dir "apache-airflow==3.3.2" -r /requirements.txt
