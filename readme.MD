@@ -44,3 +44,37 @@
     - Task, TaskGroup(Task -> Task -> Task), fan-in/fan-out -> 병렬 작업
     - task 작업 시퀀스 구성 다변화
     - XCom, retry
+
+# 더미 데이터 업로드
+- 오늘 날짜로 변경
+```
+/
+L sampel_data
+    L silver
+        L dt=2026-10-08
+L scripts
+    L upload_silver.py
+
+
+python -m scripts.upload_silver --date 2026-10-08
+```
+- 최종 S3 형태
+```
+s3://ECOMMERCE_BUCKET/
+└── silver/
+    └── dt=2026-10-08/
+        ├── products.csv
+        ├── orders.csv
+        ├── refunds.csv
+        ├── reviews.csv
+        ├── cs_tickets.csv
+        ├── policies.csv
+        └── _SUCCESS
+```
+
+# 로컬 환경 구성
+- docker-compose
+    - airflow
+        - docker file 구성
+    - postgresql
+        - image 구성
