@@ -1,0 +1,97 @@
+services:
+  # 데이터 베이스: airflow 메타 데이터 저장, 대시보드 운용, 서비스(골드 데이터(분석, 지식) 저장)
+  postgres:
+    # pg16 + pgvector 확장 이미지
+    image: pgvector/pgvector:0.8.6-pg16-bookworm
+    container_name: ecommerce-postgres
+
+    # PostgreSQL 관리자 계정
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+    restart: unless-stopped
+
+
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: ecommerce-airflow
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    # 한개의 서비스에서 모든 기능 제공 (대시보드, DAG 운영, 스케줄링...)
+    command: standalone
+
+    # 대시보드용 (react + fastapi)
+    ports:
+      - "8080:8080"
+
+    env_file:
+      - .env
+    
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DEFAULT_TIMEZONE: Asia/Seoul
+
+      # ------------------------------------------------------
+      # Airflow Metadata DB
+      # ------------------------------------------------------
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+
+      # ------------------------------------------------------
+      # 실습용 Ecommerce DB
+      # DAG:
+      # PostgresHook(postgres_conn_id="ecommerce_db")
+      # ------------------------------------------------------
+      AIRFLOW_CONN_ECOMMERCE_DB: postgresql://ecommerce:ecommerce@postgres:5432/ecommerce
+
+      # ------------------------------------------------------
+      # AWS
+      # ------------------------------------------------------
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      AWS_DEFAULT_REGION: ${AWS_REGION:-ap-northeast-2}
+      ECOMMERCE_BUCKET: ${ECOMMERCE_BUCKET}
+
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+
+      # ------------------------------------------------------
+      # Embedding
+      # ------------------------------------------------------
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-local}
+
+      BEDROCK_EMBED_MODEL: ${BEDROCK_EMBED_MODEL:-amazon.titan-embed-text-v2:0}
+      BEDROCK_REGION: ${BEDROCK_REGION:-us-east-1}
+
+    volumes:
+      - ./dags:/opt/airflow/dags:ro
+      - ./logs:/opt/airflow/logs
+
+    restart: unless-stopped
+
+
+volumes:
+  postgres-data:
