@@ -26,6 +26,8 @@ log                 = logging.getLogger(__name__)
 # 공용/공통등 함수
 # s3 client 함수
 def s3_client():
+    # airflow ui에 등록한 커넥션 정보를 활용
+    hook = S3Hook(aws_conn_id = "aws_default")
     return boto3.client("s3", region_name = AWS_REGION)
 
 
@@ -63,7 +65,7 @@ def ecommerce_silber_to_gold():
     wait_for_silver = S3KeySensor(
         task_id = "wait_for_silver",
         bucket_name = BUCKET,
-        bucket_key = "silver/dt={{params.process_date}}/_SUCCESS", #_SUCCESS 파일이 존재하면 데이터가 모두 적재 된것으로 인지
+        bucket_key = "silver/dt={{params.process_date}}/_SUCCESS.txt", #_SUCCESS 파일이 존재하면 데이터가 모두 적재 된것으로 인지
         # AWS 접속 인증 (UI상에 커넥션 등록값 활용), 만약 없다면 None, env에 키 등록 해야함
         aws_conn_id = "aws_default",
         # 15초마다 확인
@@ -98,10 +100,50 @@ def ecommerce_silber_to_gold():
         # 처리 날짜 기준으로 silver 파티션 검사
         # 데이터가 있는 위치까지 경로 구성
         prefix = f"silver/dt={process_date}/"
-        # 목록 조회
-        s3
-        pass
+        # 목록 조회 요청
+        response = s3_client().list_object_v2(
+            Bucket = BUCKET,
+            Prefix = prefix
+        )
+        # 응답 데이터 key 목록만 획득
+        keys = sorted(
+            obj["Key"]
+            for obj in response.get("Contents", [])
+        )
+        print(f"keys = {keys}")
 
+        # 실버 파일 목록이 계획한대로 구성되었는지 조사
+        # 딩일 스케줄 작동시 해당 파일들이 반드시 존재해야 함
+        required = {
+            "orders.csv",
+            "refunds.csv",
+            "reviews.csv",
+            "cs_tickets.csv",
+            "products.csv",
+            "policies.csv",
+            "_SUCCESS.txt"
+        }
+
+        # keys에서 실제 key만 추출
+        targets = {key.rsplit("/", 1)[-1] for key in keys}
+
+        # 누락 파일 체크, 대상은 중복 제거 되어 있음
+        missing = sorted(required - targets)
+        # 누락이 존재하면 -> task 실패 처리
+        if missing:
+            raise ValueError(f"missing Silver files: {missing}")
+
+        # 메타 정보 -> XCom에 게시
+        return {
+            "process_date" : process_date,
+            "prefix" : prefix,
+            "file_count" : len(keys)
+        }
+
+
+    # task 연결
+    silver_meta = inspect_silver(process_date)
     pass
+
 
 ecommerce_silber_to_gold()
