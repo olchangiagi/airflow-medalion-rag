@@ -24,6 +24,10 @@ BEDROCK_REGION      = os.getenv("BEDROCK_REGION","us-east-1")
 log                 = logging.getLogger(__name__)
 
 # 공용/공통등 함수
+# s3 client 함수
+def s3_client():
+    return boto3.client("s3", region_name = AWS_REGION)
+
 
 # DAG (@dag), 특정 함수에 @dag 데커레이터 추가하면 DAG 구성됨
 @dag(
@@ -87,6 +91,17 @@ def ecommerce_silber_to_gold():
     # task >> task
     # 필요시 계속 추가
     wait_for_silver >> process_date
+
+    # 처리 날짜 기준 csv 실제적 체크 (실존 여부)
+    @ task
+    def inspect_silver(process_date: str) -> dict[str, Any]:
+        # 처리 날짜 기준으로 silver 파티션 검사
+        # 데이터가 있는 위치까지 경로 구성
+        prefix = f"silver/dt={process_date}/"
+        # 목록 조회
+        s3
+        pass
+
     pass
 
 ecommerce_silber_to_gold()
