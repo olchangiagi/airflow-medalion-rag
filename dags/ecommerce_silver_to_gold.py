@@ -453,7 +453,7 @@ def ecommerce_silver_to_gold():
 
             # 키 생성 
             key = (
-                f"gold/knowledge/dt={process_date}/"
+                f"rag/chunks/dt={process_date}/"
                 "chunks.jsonl"
             )
             # s3에 업로드
@@ -483,7 +483,7 @@ def ecommerce_silver_to_gold():
 
             # 키 생성 
             key = (
-                f"gold/knowledge/dt={process_date}/"
+                f"rag/embeddings/dt={process_date}/"
                 "embeddings.jsonl"
             )
             # s3에 업로드
