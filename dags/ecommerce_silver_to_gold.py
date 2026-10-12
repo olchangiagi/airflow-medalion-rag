@@ -179,12 +179,12 @@ def ecommerce_silver_to_gold():
     #     return {}
 
     # 비정형/지식 데이터 처리 함수
-    @task_group(group_id="knowlegde_rag")
-    def knowlegde_rag(process_date: str):
+    @task_group(group_id="knowledge_rag")
+    def knowledge_rag(process_date: str):
         # 실버 데이터를 공통 문서 모델로 구성 task 집합 - ETL 수행
-        # 1. 리뷰, cs, 환불, 정책 => 통합 문서 구성 -> Extract
+        # 1. 리뷰, cs, 환불, 정책 => 통합 문서 구성 -> ETL
         @task
-        def build_knowlegde_gold():
+        def build_knowledge_gold(process_date:str) -> dict[str: Any]:
             # s3 버킷내 실버 경로
             base = f"silver/dt={process_date}"
             print( f"base => {base}")
@@ -329,26 +329,34 @@ def ecommerce_silver_to_gold():
 
         # transform
         # 2. 통합 문서의 문제 없는지 검사
-        # @task
-        # def knowlegde_quality_check():pass
-        # # 3. 검색 단위 청킹 처리
-        # @task
-        # def chunk_documents():pass
-        # # 4. 임베딩 -> 백터화
-        # @task
-        # def create_embedding():pass
-        # # 5. postgreSQL/pgVector 적제 -> Load
-        # @task
-        # def load_rag_to_pgvector():pass
-        # # 6. 실제 적제된 행수 조회 , 품질 확인 task(검증)
-        # @task
-        # def vector_quality_check():pass
+        @task
+        def knowledge_quality_check():pass
+        # 3. 검색 단위 청킹 처리
+        @task
+        def chunk_documents():pass
+        # 4. 임베딩 -> 백터화
+        @task
+        def create_embedding():pass
+        # 5. postgreSQL/pgVector 적제 -> Load
+        @task
+        def load_rag_to_pgvector():pass
+        # 6. 실제 적제된 행수 조회 , 품질 확인 task(검증)
+        @task
+        def vector_quality_check():pass
+
+        # task간 연결 -> 앞 task의 결과물을 뒤 task의 인자로 전달 -> 의존성 구성
+        knowledge = build_knowledge_gold(process_date) # 1. 특정 날짜의 데이터를 지식 데이터로 구성(골드 처리)
+        checked = knowledge_quality_check(knowledge)    # 2. 해당 데이터 체크
+        chunks = chunk_documents(checked, process_date)               # 3. 청킹 처리
+        embedding = create_embedding(chunks, process_date)            # 4. 임베딩 처리
+        loaded = load_rag_to_pgvector(checked, embedding, process_date)        # 5. pgVector 적재
+        return vector_quality_check(loaded, process_date)    # 6. 품질 체크
 
         return {}
 
     # 각각 task 그룹 실행->호출
     # analytics_result = analytics_gold( process_date )
-    knowlegd_result  = knowlegde_rag( process_date )
+    knowlegd_result  = knowledge_rag( process_date )
 
     # 2개의 tak 그룹을 병렬 fan-out 구성
     silver_meta >> [
