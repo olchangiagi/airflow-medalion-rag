@@ -182,7 +182,7 @@ def ecommerce_silver_to_gold():
     @task_group(group_id="knowledge_rag")
     def knowledge_rag(process_date: str):
         # 실버 데이터를 공통 문서 모델로 구성 task 집합 - ETL 수행
-        # 1. 리뷰, cs, 환불, 정책 => 통합 문서 구성 -> ETL
+        # 1. 리뷰, cs, 환불, 정책 => 통합 문서 구성 -> ETL 
         @task
         def build_knowledge_gold(process_date:str) -> dict[str: Any]:
             # s3 버킷내 실버 경로
@@ -330,19 +330,28 @@ def ecommerce_silver_to_gold():
         # transform
         # 2. 통합 문서의 문제 없는지 검사
         @task
-        def knowledge_quality_check():pass
+        def knowledge_quality_check(knowledge_meta: dict[str, Any]) -> dict[str, Any]:
+            # 해당 문서의 개수가 0건이면 이후 진행 x -> 실패 처리
+            if knowledge_meta["rows"] <= 0:
+                raise ValueError(f"knowledge document is empty: {knowledge_meta}")
+            return knowledge_meta
+
         # 3. 검색 단위 청킹 처리
         @task
-        def chunk_documents():pass
+        def chunk_documents(knowledge_meta: dict[str, Any], process_date: str) -> dict[str, Any]:pass
         # 4. 임베딩 -> 백터화
         @task
-        def create_embedding():pass
+        def create_embedding(chunk_meta: dict[str, Any], proess_date: str) -> dict[str, Any]:pass
         # 5. postgreSQL/pgVector 적제 -> Load
         @task
-        def load_rag_to_pgvector():pass
+        def load_rag_to_pgvector(knowledge_meta: dict[str, Any],
+                                 embedding_meta: dict[str, Any],
+                                 process_date: str) -> dict[str, Any]:pass
         # 6. 실제 적제된 행수 조회 , 품질 확인 task(검증)
         @task
-        def vector_quality_check():pass
+        def vector_quality_check(loaded_result: dict[str, Any],
+                                 process_date: str
+                                 ) -> dict[str, Any]:pass
 
         # task간 연결 -> 앞 task의 결과물을 뒤 task의 인자로 전달 -> 의존성 구성
         knowledge = build_knowledge_gold(process_date) # 1. 특정 날짜의 데이터를 지식 데이터로 구성(골드 처리)
