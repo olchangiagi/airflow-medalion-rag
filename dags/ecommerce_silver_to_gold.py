@@ -610,8 +610,6 @@ def ecommerce_silver_to_gold():
                         ]
                         
                     )
-
-                    pass
                 # 최종 반영
                 conn.commit()
             except Exception:
@@ -624,9 +622,9 @@ def ecommerce_silver_to_gold():
             # 적제된 문서수, 청크수, 사용된 임베딩 모델의 공급자
             return {
                 "status": "loaded",
-                "document": len(documents),
+                "documents": len(documents),
                 "chunks": len(chunks),
-                "embedding_provider": (embedding_meta["provider"])
+                "embedding_provider": ( embedding_meta["provider"], )
             }
 
         
@@ -635,7 +633,51 @@ def ecommerce_silver_to_gold():
         def vector_quality_check(
             loaded_result: dict[str, Any],
             process_date: str
-        )->dict[str, Any]:pass
+        )->dict[str, Any]:
+            # 디비 조회하여 개수 체크 <=> loaded_result에 세팅된 데이터수가 일치하는지 점검
+            # 1. 훅 획득
+            hook = PostgresHook(
+                # ecommerce_db : airflow > 커넥션 정보 등록
+                postgres_conn_id = "ecommerce_db"
+            )
+            # 2. 커넥션 획득
+            conn = hook.get_conn()
+            # 3. 에외처리
+            try:
+                with conn.cursor() as cur:
+                    # 현재 배치 작업의 기준 => dt값 2026-10-12 기준으로 데이터를 조회(카운트)
+                    cur.execute("""
+                        select count(*)
+                        from knowledge_documents
+                        where process_date=%s
+                    """, (process_date, ))
+                    doc_count = cur.fetchone()[0]   # 디비상에 해당날짜의 적제된 데이터 수
+                    cur.execute("""
+                        select count(*)
+                        from document_chunks
+                        where process_date=%s             
+                    """, (process_date, ))
+                    chunk_count = cur.fetchone()[0] # 디비상에 해당날짜의 적제된 데이터 수
+                    pass
+            except Exception:
+                raise
+            finally:
+                conn.close()
+
+            # 실패 상황 점검
+            if doc_count != loaded_result['documents']:
+                raise ValueError(f"knowledge_documents 개수가 미일치 {process_date}")
+            
+            if chunk_count != loaded_result['chunks']:
+                raise ValueError(f"document_chunks 개수가 미일치 {process_date}")
+
+            # 정확하게 저장 완료, 메타 정보와도 모두 일치함
+            # 지식의 데이터베이스화 완료
+            return {
+                **loaded_result,
+                "quality":"ok"
+            }
+            
 
         # task간 연결 -> 앞 task의 결과물을 뒤 task의 인자로 전달 => 의존성 구성
         knowledge = build_knowledge_gold( process_date ) # 1. 특정 날짜의 데이터를 지식 데이터 구성(골드처리)
@@ -648,19 +690,20 @@ def ecommerce_silver_to_gold():
 
     # 각각 task 그룹 실행->호출
     # analytics_result = analytics_gold( process_date )
-    knowlegd_result  = knowledge_rag( process_date )
+    knowledge_result  = knowledge_rag( process_date )
 
     # 2개의 tak 그룹을 병렬 fan-out 구성
-    silver_meta >> [
-        # analytics_result,
-        knowlegd_result
-    ]
+    # silver_meta >> [
+    #     analytics_result,
+    #     knowledge_result
+    # ]
+    silver_meta >> knowledge_result
 
     # 마무리 task 구성 -> DAG의 최종 상태 구성
     @task
     def finish( silver_meta: dict[str, Any],
                 # analytics_result: dict[str, Any],
-                knowlegd_result:dict[str, Any]
+                knowledge_result:dict[str, Any]
                ):
         # DAG 최종 결과
         result = {
@@ -669,8 +712,13 @@ def ecommerce_silver_to_gold():
             "silver_files": silver_meta["file_count"],
             # 분석 결과
             # 지식 결과
-            "rag":knowlegd_result
+            "rag":knowledge_result
         }
+        # 로그 출력
+        print(json.dumps(
+            result,
+            ensure_ascii=False,
+        ))
         # XCom으로 게시 (반환)
         return result
         
@@ -678,7 +726,7 @@ def ecommerce_silver_to_gold():
     finish(
         silver_meta,
         # analytics_result,
-        knowlegd_result
+        knowledge_result
     )
 
 
